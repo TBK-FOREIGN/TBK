@@ -8,7 +8,6 @@
   --btn:#0b74de;
   --btn-text:#fff;
 }
-
 [data-theme="dark"]{
   --bg:#0b0d10;
   --text:#e9eef5;
@@ -18,7 +17,6 @@
   --btn:#1e90ff;
   --btn-text:#fff;
 }
-
 *{box-sizing:border-box}
 body{font-family:'Battambang', serif;background:var(--bg);color:var(--text);margin:0;line-height:1.4}
 .container{max-width:1000px;margin:18px auto;padding:0 12px}
@@ -46,8 +44,6 @@ button#reset-form{background:#6c757d;color:#fff}
 .dots{cursor:pointer;padding:6px;border-radius:6px;background:rgba(0,0,0,0.03)}
 #theme-toggle{padding:8px 12px;border-radius:8px;background:transparent;border:1px solid rgba(0,0,0,0.06);cursor:pointer}
 .site-footer{text-align:center;padding:12px;color:var(--muted)}
-
-/* small screens */
 @media (max-width:720px){
   .site-header{flex-direction:column;gap:8px;align-items:flex-start}
   .submission{flex-direction:column}

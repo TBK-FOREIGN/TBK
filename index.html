@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TBK - FOREIGN CALL</title>
-
-  <!-- Khmer Battambang font -->
   <link href="https://fonts.googleapis.com/css2?family=Battambang&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -14,26 +12,24 @@
     <div class="left">
       <a id="telegram-btn" href="https://t.me/domunlocked" target="_blank" class="tg-btn">ជំនួយ</a>
     </div>
-
     <div class="center">
       <img src="assets/logo.png" id="logo" alt="logo" />
       <h1>កំណត់ហេតុជនបរទេស</h1>
     </div>
-
     <div class="right">
-      <button id="theme-toggle" aria-label="Toggle theme">ផ្ទៃងងិត</button>
+      <button id="theme-toggle" aria-label="Toggle theme">Dark</button>
       <button id="logout-btn" style="display:none">ចាកចេញ</button>
     </div>
   </header>
 
   <main id="app" class="container">
     <section id="login-section" class="card">
-      <h2>សូមស្វាគមន៍</h2>
+      <h2>ចូលប្រើ</h2>
       <form id="login-form">
-        <label>អុីមែល</label>
-        <input id="email" type="email" placeholder="Email" required />
+        <label>អ៊ីមែល</label>
+        <input id="email" type="email" placeholder="" required />
         <label>លេខសម្ងាត់</label>
-        <input id="password" type="password" placeholder="Password" required />
+        <input id="password" type="password" placeholder="" required />
         <button type="submit" class="primary">ចូល</button>
       </form>
     </section>
@@ -42,19 +38,32 @@
       <div class="card">
         <h2>បង្កើតសំណើ</h2>
         <form id="submit-form">
-          <label>ឈ្មោះ</label><input id="name" required />
-          <label>គោត្តនាម</label><input id="surname" required />
-          <label>លេខលិខិតឆ្លងដែន ឬ អត្តសញ្ញាណបណ្ណ</label><input id="passport" required />
-          <label>លេខទូរស័ព្ទ</label><input id="phone" required />
-          <label>សញ្ជាតិ</label><input id="nationality" required />
-          <label>អាសយដ្ឋាន</label><input id="address" required />
-          <label>មូលហេតុ</label><textarea id="reason" required></textarea>
-
-          <!-- NEW: Date of incident under 'មូលហេតុ' -->
+          <label>ប្រភព</label>
+          <input id="source" required />
+          <label>ឈ្មោះ</label>
+          <input id="name" required />
+          <label>គោត្តនាម</label>
+          <input id="surname" required />
+          <label>លេខលិខិតឆ្លងដែន ឬ អត្តសញ្ញាណបណ្ណ</label>
+          <input id="passport" required />
+          <label>ទីកន្លែងកំណើត</label>
+          <textarea id="birthplace" required></textarea>
+          <label>សញ្ជាតិ</label>
+          <input id="nationality" required />
+          <label>ឪពុកឈ្មោះ</label>
+          <input id="father" required />
+          <label>ម្ដាយឈ្មោះ</label>
+          <input id="mother" required />
+          <label>អាសយដ្ឋាន</label>
+          <textarea id="address" required></textarea>
+          <label>ស្នើឲ្យជួយករណី</label>
+          <textarea id="request_case" required></textarea>
+          <label>មូលហេតុ</label>
+          <textarea id="reason" required></textarea>
           <label>ថ្ងៃ ខែ ឆ្នាំ កើតហេតុ</label>
           <input id="incident_date" type="date" />
-
-          <label>រូបថត</label><input id="photo" type="file" accept="image/*" />
+          <label>រូបថត</label>
+          <input id="photo" type="file" accept="image/*" />
           <div class="form-actions">
             <button type="submit" class="primary">ដាក់ស្នើ</button>
             <button type="button" id="reset-form">លុបចោល</button>
@@ -79,7 +88,7 @@
 
       <div class="card">
         <h2>បញ្ជីសំណើ</h2>
-        <div id="submissions">បញ្ជីទិន្ន័យ</div>
+        <div id="submissions">កំពុងទាញទិន្នន័យ...</div>
       </div>
     </section>
   </main>
@@ -88,18 +97,11 @@
     <small>ប្រសិនបើមានបញ្ហាឬចម្ងល់ សូមទាក់ទងតេលេក្រាម 089-202-437</small>
   </footer>
 
-  <!-- Firebase init (compat) -->
   <script src="firebase-init.js"></script>
-
-  <!-- Firebase compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-
-  <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-  <!-- Main app -->
   <script src="app.js"></script>
 </body>
 </html>
