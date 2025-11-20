@@ -259,13 +259,7 @@ document.addEventListener('click', () => menu.remove(), { once: true });
 
 // escape
 function escapeHtml(s){
-  return String(s || '').replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  })[m]);
+  return String(s || '');
 }
 
 // Search & filters
