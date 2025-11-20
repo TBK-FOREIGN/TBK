@@ -229,12 +229,25 @@ function renderList(items){
     dots.onclick = (e)=>{
       e.stopPropagation();
       if (!(currentUser && currentUser.email === ADMIN_EMAIL)) { alert('អនុញ្ញាតសម្រាប់អ្នកគម្រោងប៉ុណ្ណោះ'); return; }
-      const menu = createEl('div','popup-menu');
-      const opt1 = createEl('div'); opt1.textContent = 'ដោះស្រាយរួច'; opt1.onclick = async ()=>{ await db.collection(COLLECTION).doc(id).update({ status:'ដោះស្រាយរួច' }); };
-      const opt2 = createEl('div'); opt2.textContent = 'មិនទាន់ដោះស្រាយ'; opt2.onclick = async ()=>{ await db.collection(COLLECTION).doc(id).update({ status:'មិនទាន់ដោះស្រាយ' }); };
-      menu.appendChild(opt1); menu.appendChild(opt2);
-      row.appendChild(menu);
-      document.addEventListener('click', ()=> menu.remove(), { once:true });
+const menu = createEl('div','popup-menu');
+
+const opt1 = createEl('div');
+opt1.textContent = 'ដោះស្រាយរួច';
+opt1.onclick = async () => {
+  await db.collection(COLLECTION).doc(id).update({ status: 'ដោះស្រាយរួច' });
+};
+
+const opt2 = createEl('div');
+opt2.textContent = 'មិនទាន់ដោះស្រាយ';
+opt2.onclick = async () => {
+  await db.collection(COLLECTION).doc(id).update({ status: 'មិនទាន់ដោះស្រាយ' });
+};
+
+menu.appendChild(opt1);
+menu.appendChild(opt2);
+row.appendChild(menu);
+document.addEventListener('click', () => menu.remove(), { once: true });
+
     };
     actions.appendChild(dots);
 
@@ -245,7 +258,15 @@ function renderList(items){
 }
 
 // escape
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#039;'}[m])); }
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  })[m]);
+}
 
 // Search & filters
 let lastQuery = '';
