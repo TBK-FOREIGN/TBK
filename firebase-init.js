@@ -15,5 +15,6 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfigCompat);
 }
 
-const db = firebase.firestore();
-const storage = firebase.storage();
+// MAKE THEM GLOBAL (required by your app.js)
+window.db = firebase.firestore();
+window.storage = firebase.storage();
