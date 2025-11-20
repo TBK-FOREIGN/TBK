@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="km" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TBK - FOREIGN CALL</title>
+
+  <!-- Khmer Battambang font -->
+  <link href="https://fonts.googleapis.com/css2?family=Battambang&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="left">
+      <a id="telegram-btn" href="https://t.me/domunlocked" target="_blank" class="tg-btn">ជំនួយ</a>
+    </div>
+
+    <div class="center">
+      <img src="assets/logo.png" id="logo" alt="logo" />
+      <h1>កំណត់ហេតុជនបរទេស</h1>
+    </div>
+
+    <div class="right">
+      <button id="theme-toggle" aria-label="Toggle theme">ផ្ទៃងងិត</button>
+      <button id="logout-btn" style="display:none">ចាកចេញ</button>
+    </div>
+  </header>
+
+  <main id="app" class="container">
+    <section id="login-section" class="card">
+      <h2>សូមស្វាគមន៍</h2>
+      <form id="login-form">
+        <label>អុីមែល</label>
+        <input id="email" type="email" placeholder="Email" required />
+        <label>លេខសម្ងាត់</label>
+        <input id="password" type="password" placeholder="Password" required />
+        <button type="submit" class="primary">ចូល</button>
+      </form>
+    </section>
+
+    <section id="panel" style="display:none">
+      <div class="card">
+        <h2>បង្កើតសំណើ</h2>
+        <form id="submit-form">
+          <label>ឈ្មោះ</label><input id="name" required />
+          <label>គោត្តនាម</label><input id="surname" required />
+          <label>លេខលិខិតឆ្លងដែន ឬ អត្តសញ្ញាណបណ្ណ</label><input id="passport" required />
+          <label>លេខទូរស័ព្ទ</label><input id="phone" required />
+          <label>សញ្ជាតិ</label><input id="nationality" required />
+          <label>អាសយដ្ឋាន</label><input id="address" required />
+          <label>មូលហេតុ</label><textarea id="reason" required></textarea>
+
+          <!-- NEW: Date of incident under 'មូលហេតុ' -->
+          <label>ថ្ងៃ ខែ ឆ្នាំ កើតហេតុ</label>
+          <input id="incident_date" type="date" />
+
+          <label>រូបថត</label><input id="photo" type="file" accept="image/*" />
+          <div class="form-actions">
+            <button type="submit" class="primary">ដាក់ស្នើ</button>
+            <button type="button" id="reset-form">លុបចោល</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card exports">
+        <h3>នាំចេញ និង របាយការណ៍</h3>
+        <div class="export-actions">
+          <button id="export-pdf" class="primary">ទាញយក PDF (រាយការណ៍)</button>
+          <button id="export-excel">ទាញយក Excel (CSV)</button>
+        </div>
+
+        <div class="reports" style="margin-top:12px">
+          <button data-range="day">ប្រចាំថ្ងៃ</button>
+          <button data-range="week">ប្រចាំអាទិត្យ</button>
+          <button data-range="month">ប្រចាំខែ</button>
+          <button data-range="year">ប្រចាំឆ្នាំ</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>បញ្ជីសំណើ</h2>
+        <div id="submissions">បញ្ជីទិន្ន័យ</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <small>ប្រសិនបើមានបញ្ហាឬចម្ងល់ សូមទាក់ទងតេលេក្រាម 089-202-437</small>
+  </footer>
+
+  <!-- Firebase init (compat) -->
+  <script src="firebase-init.js"></script>
+
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Main app -->
+  <script src="app.js"></script>
+</body>
+</html>
