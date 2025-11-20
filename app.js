@@ -1,9 +1,16 @@
+// Cleaned app.js - single submit handler, realtime updates, search & filters
+// Assumes firebase-init.js already defines `db` (Firestore) and `storage` (Storage)
+// and that index.html contains matching element IDs.
+
 const ADMIN_EMAIL = "foreign@tbk.com";
 const ADMIN_PASSWORD = "TBK123*@";
 const COLLECTION = "submissions";
+
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
 const createEl = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
 
+// Theme init
 (function initTheme(){
   const m = localStorage.getItem('tbk_mode') || 'light';
   document.documentElement.setAttribute('data-theme', m);
@@ -22,39 +29,40 @@ if (themeBtn) {
   });
 }
 
+// Simple local auth (no Firebase Auth)
 let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-
 function showLogin(){ if ($('#login-section')) $('#login-section').style.display='block'; if ($('#panel')) $('#panel').style.display='none'; if ($('#logout-btn')) $('#logout-btn').style.display='none'; }
 function showApp(){ if ($('#login-section')) $('#login-section').style.display='none'; if ($('#panel')) $('#panel').style.display='block'; if ($('#logout-btn')) $('#logout-btn').style.display='inline-block'; }
 
-if (currentUser) { showApp(); loadSubmissions(); } else { showLogin(); }
+if (currentUser) { showApp(); } else { showLogin(); }
 
+// Login handler
 const loginForm = $('#login-form');
 if (loginForm) {
-  loginForm.addEventListener('submit', (e) => {
+  loginForm.addEventListener('submit', (e)=>{
     e.preventDefault();
-    const emailVal = $('#email').value.trim();
-    const passVal = $('#password').value;
-    if (emailVal === ADMIN_EMAIL && passVal === ADMIN_PASSWORD) {
-      currentUser = { email: emailVal };
+    const email = $('#email').value.trim();
+    const pwd = $('#password').value;
+    if (email === ADMIN_EMAIL && pwd === ADMIN_PASSWORD) {
+      currentUser = { email };
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
       showApp();
-      loadSubmissions();
+      startRealtimeListener();
     } else {
       alert('អ៊ីមែល ឬ លេខសម្ងាត់ មិនត្រឹមត្រូវ');
     }
   });
 }
 
+// logout
 const logoutBtn = $('#logout-btn');
-if (logoutBtn) {
-  logoutBtn.addEventListener('click', () => {
-    localStorage.removeItem('currentUser');
-    currentUser = null;
-    showLogin();
-  });
-}
+if (logoutBtn) logoutBtn.addEventListener('click', ()=>{
+  localStorage.removeItem('currentUser');
+  currentUser = null;
+  location.reload();
+});
 
+// Helper - upload file to storage
 async function uploadFileIfPresent(file, destPathPrefix){
   if (!file) return null;
   const filename = `${Date.now()}_${file.name}`;
@@ -65,30 +73,20 @@ async function uploadFileIfPresent(file, destPathPrefix){
   return { path, url };
 }
 
+// Single submit handler (create or edit)
 const submitForm = $('#submit-form');
 if (submitForm) {
-  submitForm.addEventListener('submit', async (e) => {
+  submitForm.addEventListener('submit', async (e)=>{
     e.preventDefault();
+    // if editing
     if (submitForm.dataset.editId) {
+      await handleEditSave();
       return;
     }
-    const payload = {
-      source: $('#source').value.trim(),
-      name: $('#name').value.trim(),
-      surname: $('#surname').value.trim(),
-      passport: $('#passport').value.trim(),
-      birthplace: $('#birthplace').value.trim(),
-      nationality: $('#nationality').value.trim(),
-      father: $('#father').value.trim(),
-      mother: $('#mother').value.trim(),
-      address: $('#address').value.trim(),
-      request_case: $('#request_case').value.trim(),
-      reason: $('#reason').value.trim(),
-      incidentDate: $('#incident_date').value || null,
-      status: 'មិនទាន់ដោះស្រាយ',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
+    // create new
+    const payload = gatherFormData();
     try {
+      console.log('Creating record...', payload);
       const docRef = await db.collection(COLLECTION).add(payload);
       const file = $('#photo').files[0];
       if (file) {
@@ -97,54 +95,60 @@ if (submitForm) {
           await db.collection(COLLECTION).doc(docRef.id).update({ photoUrl: uploaded.url, photoPath: uploaded.path });
         }
       }
-      alert('បានរក្សាទុក');
+      alert('បានរក្សាទុក'); // saved
       submitForm.reset();
-      loadSubmissions();
+      // if realtime listener is active, list updates automatically; otherwise refresh
+      // loadSubmissions();
     } catch (err) {
-      console.error(err);
-      alert('មានបញ្ហា — មិនអាចរក្សាទិន្នន័យបាន');
+      console.error('Create error', err);
+      alert('មានបញ្ហា — មិនអាចរក្សាទិន្នន័យបាន: ' + (err.message||err));
     }
   });
 }
 
-const resetBtn = $('#reset-form');
-if (resetBtn) resetBtn.addEventListener('click', ()=> submitForm.reset());
-
-function openEdit(id, data){
-  $('#source').value = data.source || '';
-  $('#name').value = data.name || '';
-  $('#surname').value = data.surname || '';
-  $('#passport').value = data.passport || '';
-  $('#birthplace').value = data.birthplace || '';
-  $('#nationality').value = data.nationality || '';
-  $('#father').value = data.father || '';
-  $('#mother').value = data.mother || '';
-  $('#address').value = data.address || '';
-  $('#request_case').value = data.request_case || '';
-  $('#reason').value = data.reason || '';
-  $('#incident_date').value = data.incidentDate || '';
-  submitForm.dataset.editId = id;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// helper to gather form fields (matching IDs)
+function gatherFormData(){
+  return {
+    source: ($('#source') ? $('#source').value.trim() : ''),
+    name: ($('#name') ? $('#name').value.trim() : ''),
+    surname: ($('#surname') ? $('#surname').value.trim() : ''),
+    passport: ($('#passport') ? $('#passport').value.trim() : ''),
+    birthplace: ($('#birthplace') ? $('#birthplace').value.trim() : ''),
+    nationality: ($('#nationality') ? $('#nationality').value.trim() : ''),
+    father: ($('#father') ? $('#father').value.trim() : ''),
+    mother: ($('#mother') ? $('#mother').value.trim() : ''),
+    address: ($('#address') ? $('#address').value.trim() : ''),
+    request_case: ($('#request_case') ? $('#request_case').value.trim() : ''),
+    reason: ($('#reason') ? $('#reason').value.trim() : ''),
+    incidentDate: ($('#incident_date') ? $('#incident_date').value : null),
+    status: 'មិនទាន់ដោះស្រាយ',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
 }
 
-async function saveEditIfPresent(){
-  if (!submitForm.dataset.editId) return false;
+// Edit flow
+function openEdit(id, data){
+  if (!submitForm) return;
+  submitForm.dataset.editId = id;
+  if ($('#source')) $('#source').value = data.source || '';
+  if ($('#name')) $('#name').value = data.name || '';
+  if ($('#surname')) $('#surname').value = data.surname || '';
+  if ($('#passport')) $('#passport').value = data.passport || '';
+  if ($('#birthplace')) $('#birthplace').value = data.birthplace || '';
+  if ($('#nationality')) $('#nationality').value = data.nationality || '';
+  if ($('#father')) $('#father').value = data.father || '';
+  if ($('#mother')) $('#mother').value = data.mother || '';
+  if ($('#address')) $('#address').value = data.address || '';
+  if ($('#request_case')) $('#request_case').value = data.request_case || '';
+  if ($('#reason')) $('#reason').value = data.reason || '';
+  if ($('#incident_date')) $('#incident_date').value = data.incidentDate || '';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function handleEditSave(){
   const id = submitForm.dataset.editId;
-  const update = {
-    source: $('#source').value.trim(),
-    name: $('#name').value.trim(),
-    surname: $('#surname').value.trim(),
-    passport: $('#passport').value.trim(),
-    birthplace: $('#birthplace').value.trim(),
-    nationality: $('#nationality').value.trim(),
-    father: $('#father').value.trim(),
-    mother: $('#mother').value.trim(),
-    address: $('#address').value.trim(),
-    request_case: $('#request_case').value.trim(),
-    reason: $('#reason').value.trim(),
-    incidentDate: $('#incident_date').value || null,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
+  if (!id) return;
+  const update = gatherFormData();
   try {
     await db.collection(COLLECTION).doc(id).update(update);
     const file = $('#photo').files[0];
@@ -155,221 +159,160 @@ async function saveEditIfPresent(){
       }
     }
     delete submitForm.dataset.editId;
-    return true;
+    alert('បានកែប្រែ');
+    submitForm.reset();
   } catch (err) {
-    console.error(err);
-    alert('កំហុសពេលកែប្រែ');
-    return false;
+    console.error('Edit save error', err);
+    alert('កំហុសពេលកែប្រែ: ' + (err.message||err));
   }
 }
 
-submitForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (submitForm.dataset.editId) {
-    const ok = await saveEditIfPresent();
-    if (ok) { alert('បានកែប្រែ'); loadSubmissions(); submitForm.reset(); }
-    return;
-  }
-});
-
-async function loadSubmissions(){
-  const container = $('#submissions');
-  if (!container) return;
-  container.innerHTML = 'កំពុងទាញទិន្នន័យ...';
-  try {
-    const snap = await db.collection(COLLECTION).orderBy('createdAt','desc').get();
-    container.innerHTML = '';
-    snap.forEach(doc => {
-      const d = doc.data();
-      const div = createEl('div','submission');
-      const meta = createEl('div','meta');
-      meta.innerHTML = `<strong>${escapeHtml(d.name||'')} ${escapeHtml(d.surname||'')}</strong> • ${escapeHtml(d.source||'')}`;
-      const status = createEl('div', d.status === 'មិនទាន់ដោះស្រាយ' ? 'status pending' : 'status done');
-      status.textContent = d.status === 'មិនទាន់ដោះស្រាយ' ? 'មិនទាន់ដោះស្រាយ' : 'ដោះស្រាយរួច';
-      meta.appendChild(status);
-      div.appendChild(meta);
-      if (d.photoUrl) {
-        const img = createEl('img');
-        img.src = d.photoUrl;
-        img.alt = 'photo';
-        img.style.maxWidth = '120px';
-        div.appendChild(img);
-      }
-      const info = createEl('div','info');
-      info.innerHTML = `<div>លេខលិខិត: ${escapeHtml(d.passport||'')}</div>
-                        <div>ទីកន្លែងកំណើត: ${escapeHtml(d.birthplace||'')}</div>
-                        <div>សញ្ជាតិ: ${escapeHtml(d.nationality||'')}</div>
-                        <div>ឪពុក: ${escapeHtml(d.father||'')}</div>
-                        <div>ម្ដាយ: ${escapeHtml(d.mother||'')}</div>
-                        <div>អាសយដ្ឋាន: ${escapeHtml(d.address||'')}</div>
-                        <div>ស្នើឲ្យជួយ: ${escapeHtml(d.request_case||'')}</div>
-                        <div>មូលហេតុ: ${escapeHtml(d.reason||'')}</div>
-                        <div>ថ្ងៃខែឆ្នាំកើតហេតុ: ${escapeHtml(d.incidentDate||'')}</div>`;
-      div.appendChild(info);
-      const createdAt = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate().getTime() : null;
-      const now = Date.now();
-      const canEdit = createdAt ? ((now - createdAt) < (2*24*60*60*1000) || (currentUser && currentUser.email === ADMIN_EMAIL)) : (currentUser && currentUser.email === ADMIN_EMAIL);
-      if (canEdit) {
-        const editBtn = createEl('button');
-        editBtn.textContent = 'កែសម្រួល';
-        editBtn.onclick = ()=> openEdit(doc.id, d);
-        div.appendChild(editBtn);
-      }
-      const dots = createEl('div','dots');
-      dots.textContent = '⋯';
-      dots.onclick = (e)=>{
-        e.stopPropagation();
-        if (!(currentUser && currentUser.email === ADMIN_EMAIL)) { alert('អនុញ្ញាតសម្រាប់អ្នកគម្រោងប៉ុណ្ណោះ'); return; }
-        const menu = createEl('div');
-        menu.style.position = 'absolute';
-        menu.style.right = '12px';
-        menu.style.top = '36px';
-        menu.style.background = 'var(--card)';
-        menu.style.border = '1px solid rgba(0,0,0,0.08)';
-        menu.style.padding = '6px';
-        const opt1 = createEl('div'); opt1.textContent = 'ដោះស្រាយរួច'; opt1.onclick = async ()=>{ await db.collection(COLLECTION).doc(doc.id).update({ status:'ដោះស្រាយរួច' }); loadSubmissions(); };
-        const opt2 = createEl('div'); opt2.textContent = 'មិនទាន់ដោះស្រាយ'; opt2.onclick = async ()=>{ await db.collection(COLLECTION).doc(doc.id).update({ status:'មិនទាន់ដោះស្រាយ' }); loadSubmissions(); };
-        menu.appendChild(opt1); menu.appendChild(opt2);
-        div.appendChild(menu);
-        document.addEventListener('click', ()=> menu.remove(), {once:true});
-      };
-      div.appendChild(dots);
-      container.appendChild(div);
-    });
-  } catch (err) {
-    console.error(err);
-    container.innerHTML = 'មិនអាចទាញទិន្នន័យបាន';
-  }
-}
-
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' })[m]); }
-
-async function exportCombinedPDF(){
-  try {
-    const snap = await db.collection(COLLECTION).orderBy('createdAt','asc').get();
-    const candidatePaths = ['/mnt/data/photo_2025-11-17 09.48.51.jpeg','assets/form_template.jpeg'];
-    let bgDataUrl = null;
-    for (const p of candidatePaths) {
-      try {
-        const bg = await loadLocalOrRemoteImageToDataURL(p);
-        if (bg) { bgDataUrl = bg; break; }
-      } catch(e){}
-    }
-    if (!bgDataUrl) throw new Error('PDF background not available');
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'mm', format:'a4' });
-    let first = true;
-    for (const d of snap.docs) {
-      if (!first) doc.addPage();
-      first = false;
-      const rec = d.data();
-      doc.addImage(bgDataUrl, 'JPEG', 0, 0, 210, 297);
-      const xFrom = 26, yFrom = 52, xName = 26, yName = 60, xSurname = 26, ySurname = 68, xPassport = 140, yPassport = 60, xBirth = 26, yBirth = 76, xNationality = 140, yNationality = 76, xFather = 26, yFather = 92, xMother = 140, yMother = 92, xAddress = 26, yAddress = 100, xRequest = 26, yRequest = 120, xReason = 26, yReason = 140, xIncident = 140, yIncident = 100, imgX = 156, imgY = 30, imgW = 38, imgH = 48;
-      doc.setFontSize(12);
-      doc.text(String(rec.source || ''), xFrom, yFrom);
-      doc.text(String(rec.name || ''), xName, yName);
-      doc.text(String(rec.surname || ''), xSurname, ySurname);
-      doc.text(String(rec.passport || ''), xPassport, yPassport);
-      doc.text(String(rec.birthplace || ''), xBirth, yBirth);
-      doc.text(String(rec.nationality || ''), xNationality, yNationality);
-      doc.text(String(rec.father || ''), xFather, yFather);
-      doc.text(String(rec.mother || ''), xMother, yMother);
-      const addrLines = doc.splitTextToSize(String(rec.address || ''), 120);
-      doc.text(addrLines, xAddress, yAddress);
-      const reqLines = doc.splitTextToSize(String(rec.request_case || ''), 150);
-      doc.text(reqLines, xRequest, yRequest);
-      const reasonLines = doc.splitTextToSize(String(rec.reason || ''), 150);
-      doc.text(reasonLines, xReason, yReason);
-      if (rec.incidentDate) doc.text(String(rec.incidentDate), xIncident, yIncident);
-      if (rec.photoUrl) {
-        try {
-          const dataUrl = await loadImageToDataURL(rec.photoUrl);
-          doc.addImage(dataUrl, 'JPEG', imgX, imgY, imgW, imgH);
-        } catch (err) {}
-      }
-    }
-    doc.save('TBK_REPORT_COMBINED.pdf');
-  } catch (err) {
-    console.error(err);
-    alert('មិនអាចនាំចេញ PDF បាន');
-  }
-}
-
-function loadLocalOrRemoteImageToDataURL(path){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function(){
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      c.getContext('2d').drawImage(img,0,0);
-      try { resolve(c.toDataURL('image/jpeg', 0.92)); } catch(e){ reject(e); }
-    };
-    img.onerror = function(){ reject(new Error('image load error')); };
-    img.src = path;
+// Real-time listener and rendering
+let activeUnsubscribe = null;
+function startRealtimeListener(queryConstraints = []) {
+  if (activeUnsubscribe) activeUnsubscribe(); // stop previous
+  let ref = db.collection(COLLECTION).orderBy('createdAt', 'desc');
+  // apply constraints if any (handled via client side for search/filters)
+  activeUnsubscribe = ref.onSnapshot(snapshot => {
+    renderList(snapshot.docs.map(d => ({ id: d.id, data: d.data() })));
+  }, err=>{
+    console.error('Realtime error', err);
   });
 }
 
-function loadImageToDataURL(url){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function(){
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      c.getContext('2d').drawImage(img,0,0);
-      try { resolve(c.toDataURL('image/jpeg', 0.9)); } catch(e){ reject(e); }
+// render list
+function renderList(items){
+  const container = $('#submissions') || $('#request-list') || document.createElement('div');
+  container.innerHTML = '';
+  items.forEach(item=>{
+    const d = item.data || item;
+    const id = item.id || '';
+    const row = createEl('div','submission-row');
+    const meta = createEl('div','meta');
+    meta.innerHTML = `<strong>${escapeHtml(d.name||'')} ${escapeHtml(d.surname||'')}</strong> • ${escapeHtml(d.source||'')}`;
+    const statusClass = (d.status === 'មិនទាន់ដោះស្រាយ' || d.status==='pending') ? 'status pending' : 'status done';
+    const statusElem = createEl('div', statusClass);
+    statusElem.textContent = (d.status === 'មិនទាន់ដោះស្រាយ' || d.status==='pending') ? 'មិនទាន់ដោះស្រាយ' : 'ដោះស្រាយរួច';
+    meta.appendChild(statusElem);
+    row.appendChild(meta);
+
+    if (d.photoUrl) {
+      const img = createEl('img');
+      img.src = d.photoUrl;
+      img.alt = 'photo';
+      img.style.maxWidth = '100px';
+      img.style.marginLeft = '12px';
+      row.appendChild(img);
+    }
+
+    const info = createEl('div','info');
+    info.innerHTML = `<div>លេខលិខិត: ${escapeHtml(d.passport||'')}</div>
+                      <div>ទីកន្លែងកំណើត: ${escapeHtml(d.birthplace||'')}</div>
+                      <div>សញ្ជាតិ: ${escapeHtml(d.nationality||'')}</div>
+                      <div>ឪពុក: ${escapeHtml(d.father||'')}</div>
+                      <div>ម្ដាយ: ${escapeHtml(d.mother||'')}</div>
+                      <div>អាសយដ្ឋាន: ${escapeHtml(d.address||'')}</div>
+                      <div>ស្នើឲ្យជួយ: ${escapeHtml(d.request_case||'')}</div>
+                      <div>មូលហេតុ: ${escapeHtml(d.reason||'')}</div>
+                      <div>ថ្ងៃខែឆ្នាំកើតហេតុ: ${escapeHtml(d.incidentDate||'')}</div>`;
+    row.appendChild(info);
+
+    // actions
+    const actions = createEl('div','actions');
+    const editBtn = createEl('button','small');
+    editBtn.textContent = 'កែសម្រួល';
+    editBtn.onclick = ()=> openEdit(id, d);
+    actions.appendChild(editBtn);
+
+    const dots = createEl('button','small dots-btn');
+    dots.textContent = '⋯';
+    dots.onclick = (e)=>{
+      e.stopPropagation();
+      if (!(currentUser && currentUser.email === ADMIN_EMAIL)) { alert('អនុញ្ញាតសម្រាប់អ្នកគម្រោងប៉ុណ្ណោះ'); return; }
+      const menu = createEl('div','popup-menu');
+      const opt1 = createEl('div'); opt1.textContent = 'ដោះស្រាយរួច'; opt1.onclick = async ()=>{ await db.collection(COLLECTION).doc(id).update({ status:'ដោះស្រាយរួច' }); };
+      const opt2 = createEl('div'); opt2.textContent = 'មិនទាន់ដោះស្រាយ'; opt2.onclick = async ()=>{ await db.collection(COLLECTION).doc(id).update({ status:'មិនទាន់ដោះស្រាយ' }); };
+      menu.appendChild(opt1); menu.appendChild(opt2);
+      row.appendChild(menu);
+      document.addEventListener('click', ()=> menu.remove(), { once:true });
     };
-    img.onerror = reject;
-    img.src = url;
+    actions.appendChild(dots);
+
+    row.appendChild(actions);
+
+    container.appendChild(row);
   });
 }
 
-async function exportCSV(){
-  try {
-    const snap = await db.collection(COLLECTION).orderBy('createdAt','asc').get();
-    let csv = '\uFEFFsource,name,surname,passport,birthplace,nationality,father,mother,address,request_case,reason,incidentDate,status,createdAt\n';
-    snap.forEach(doc => {
-      const r = doc.data();
-      const when = r.createdAt && r.createdAt.toDate ? r.createdAt.toDate().toLocaleString('km-KH') : '';
-      csv += `"${(r.source||'').replace(/"/g,'""')}","${(r.name||'').replace(/"/g,'""')}","${(r.surname||'').replace(/"/g,'""')}","${(r.passport||'').replace(/"/g,'""')}","${(r.birthplace||'').replace(/"/g,'""')}","${(r.nationality||'').replace(/"/g,'""')}","${(r.father||'').replace(/"/g,'""')}","${(r.mother||'').replace(/"/g,'""')}","${(r.address||'').replace(/"/g,'""')}","${(r.request_case||'').replace(/"/g,'""')}","${(r.reason||'').replace(/"/g,'""')}","${(r.incidentDate||'')}","${(r.status||'')}","${when}"\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'TBK_REPORT.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  } catch (err) {
-    console.error(err);
-    alert('មិនអាចនាំចេញ CSV បាន');
-  }
+// escape
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#039;'}[m])); }
+
+// Search & filters
+let lastQuery = '';
+let debounceTimer = null;
+function applyClientFilters(){
+  // we will fetch all and filter client-side for simplicity (small datasets)
+  db.collection(COLLECTION).orderBy('createdAt','desc').get().then(snap=>{
+    let items = snap.docs.map(d=>({ id: d.id, data: d.data() }));
+    const q = ($('#global-search') ? $('#global-search').value.trim().toLowerCase() : '');
+    const status = ($('#status-filter') ? $('#status-filter').value : 'all');
+    const dateFrom = ($('#date-from') ? $('#date-from').value : '');
+    const dateTo = ($('#date-to') ? $('#date-to').value : '');
+    if (q) {
+      items = items.filter(it=>{
+        const d = it.data || {};
+        return (String(d.name||'')+ ' ' + String(d.surname||'') + ' ' + String(d.passport||'') + ' ' + String(d.request_case||'')).toLowerCase().includes(q);
+      });
+    }
+    if (status && status !== 'all') {
+      if (status === 'pending') items = items.filter(it => (it.data.status === 'មិនទាន់ដោះស្រាយ' || it.data.status === 'pending'));
+      else items = items.filter(it => (it.data.status === 'ដោះស្រាយរួច' || it.data.status === 'done'));
+    }
+    if (dateFrom) {
+      const fromTime = new Date(dateFrom).getTime();
+      items = items.filter(it => {
+        if (!it.data.createdAt) return false;
+        const t = it.data.createdAt.toDate ? it.data.createdAt.toDate().getTime() : (it.data.createdAt.seconds?it.data.createdAt.seconds*1000:0);
+        return t >= fromTime;
+      });
+    }
+    if (dateTo) {
+      const toTime = new Date(dateTo).getTime() + (24*60*60*1000 - 1);
+      items = items.filter(it => {
+        if (!it.data.createdAt) return false;
+        const t = it.data.createdAt.toDate ? it.data.createdAt.toDate().getTime() : (it.data.createdAt.seconds?it.data.createdAt.seconds*1000:0);
+        return t <= toTime;
+      });
+    }
+    renderList(items);
+  }).catch(err=>{
+    console.error('Filter fetch error', err);
+  });
 }
 
-const exportPdfBtn = $('#export-pdf');
-if (exportPdfBtn) exportPdfBtn.addEventListener('click', exportCombinedPDF);
-const exportExcelBtn = $('#export-excel');
-if (exportExcelBtn) exportExcelBtn.addEventListener('click', exportCSV);
-
-document.querySelectorAll('.reports button').forEach(btn=>{
-  btn.onclick = async ()=>{
-    const range = btn.dataset.range;
-    const now = Date.now();
-    let start = 0;
-    if (range==='day') start = now - (24*60*60*1000);
-    if (range==='week') start = now - (7*24*60*60*1000);
-    if (range==='month') start = now - (30*24*60*60*1000);
-    if (range==='year') start = now - (365*24*60*60*1000);
-    try {
-      const snap = await db.collection(COLLECTION).where('createdAt','>=', firebase.firestore.Timestamp.fromMillis(start)).get();
-      alert(`មាន ${snap.size} សំណើក្នុងរយៈពេលនេះ`);
-    } catch (err) {
-      console.error(err);
-      alert('មិនអាចទាញរបាយការណ៍បាន');
-    }
-  };
+const searchInput = $('#global-search');
+if (searchInput) {
+  searchInput.addEventListener('input', ()=>{
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(()=>{ applyClientFilters(); }, 350);
+  });
+}
+const applyBtn = $('#apply-filters');
+if (applyBtn) applyBtn.addEventListener('click', applyClientFilters);
+const clearBtn = $('#clear-filters');
+if (clearBtn) clearBtn.addEventListener('click', ()=>{
+  if ($('#global-search')) $('#global-search').value = '';
+  if ($('#status-filter')) $('#status-filter').value = 'all';
+  if ($('#date-from')) $('#date-from').value = '';
+  if ($('#date-to')) $('#date-to').value = '';
+  applyClientFilters();
 });
 
-window.addEventListener('load', ()=>{
-  if (window.db) loadSubmissions();
-});
+// start realtime listener on login or page load
+function initApp(){
+  if (currentUser) {
+    startRealtimeListener();
+  }
+}
+initApp();
+
